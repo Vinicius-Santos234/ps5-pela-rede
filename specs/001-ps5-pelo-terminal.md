@@ -158,7 +158,7 @@ de ~20 s logo depois do repouso é normal, não é o console desligado de vez. O
 | **O login na PSN pelo `playactor` pode ter quebrado** com mudanças da Sony | Plano B: registrar pelo chiaki-ng e ler o `RegistKey` que ele guarda. **Não quebrou**: o registro com a 0.4.1 (de 2022) funcionou em 24/10 |
 | Uma atualização do sistema muda o protocolo (hoje 14.20) | Os gabaritos guardam a `system-version`; um teste quebrado aponta a mudança |
 | O IP do PS5 muda (DHCP) | A busca não depende do IP; `--ip` é só um atalho |
-| A sessão Remote Play do repouso aparece na TV ou atrapalha quem está jogando | Medir na E4; a pergunta (P8) cobre o pior caso. Na E4, a sessão durou ~9 s e terminou em repouso; o que aparece na tela ainda não foi observado |
+| A sessão Remote Play do repouso aparece na TV ou atrapalha quem está jogando | **Medido em 24/10, por ele olhando a TV** (repouso em 8,4 s, despertar em 17,4 s): nenhuma mensagem na tela, o console só entra em repouso; ao acordar, a TV não liga sozinha nem troca de entrada. Quem estiver jogando é cortado sem aviso nenhum, e é por isso que a pergunta (P8) existe |
 
 ---
 
