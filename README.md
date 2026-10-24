@@ -12,7 +12,7 @@ a comunidade já decifrou ([playactor](https://github.com/dhleong/playactor),
 ## Estado
 
 **Spec 001 concluída em 24/10/2026**: o PS5 pelo terminal, com status, registrar, acordar e repousar,
-testados no console. A próxima é a 002.
+testados no console. A 002, a página no celular, está em rascunho.
 
 ```
 npm ci && npm test
@@ -26,7 +26,7 @@ npm run gabarito                                      # grava a resposta real em
 | Spec | O que é | Estado |
 |---|---|---|
 | [001](specs/001-ps5-pelo-terminal.md) | O comando `ps5`: status, registrar, acordar, repousar | **concluída** |
-| 002 | Serviço 24h no servidor caseiro + página para o celular, só pelo Tailscale, com o jogo rodando pela presença da PSN | a escrever |
+| [002](specs/002-ps5-no-celular.md) | Serviço 24h no servidor caseiro + página para o celular, só pelo Tailscale, com o jogo rodando pela presença da PSN | rascunho |
 
 ## Onde roda
 
