@@ -3,14 +3,16 @@
 //   ps5 status                  busca na rede toda
 //   ps5 status --ip 192.168.1.10 --json
 //   ps5 registrar               uma vez, com o PS5 ligado e a tela do PIN à mão
+//   ps5 acordar
 import { isIPv4 } from 'node:net';
 import { createInterface } from 'node:readline/promises';
 import { parseArgs } from 'node:util';
 import { buscar } from '../src/descoberta.js';
 
-// Os códigos do status são os do `playactor check`, para usar em script. 64 e 70 são os do sysexits.h.
-const SAIDA = { ligado: 0, repouso: 1, naoEncontrado: 2, uso: 64, erro: 70 };
+// Os códigos do status são os do `playactor check`, para usar em script. 64, 70 e 78 são os do sysexits.h.
+const SAIDA = { ligado: 0, repouso: 1, naoEncontrado: 2, naoAcordou: 3, uso: 64, erro: 70, semCredencial: 78 };
 const TEMPO_DA_BUSCA_MS = 3000;
+const TEMPO_PARA_ACORDAR_MS = 60000;
 
 const USO = `Uso: ps5 <comando> [opções]
 
@@ -19,11 +21,14 @@ const USO = `Uso: ps5 <comando> [opções]
   registrar [--ip X]          registra este computador no PS5 (login na PSN + PIN), uma vez só
             [--de-novo]       registra outra vez, mesmo já havendo credencial
                               sai com 0 registrado, 1 em repouso, 2 não encontrado, 70 falhou
+  acordar [--ip X]            liga o PS5 que está em repouso e espera ele responder ligado
+                              sai com 0 ligou ou já estava ligado, 2 não encontrado,
+                              3 não acordou em 60 s, 78 este computador não está registrado
 
-Ainda por fazer (spec 001): acordar (E3), repousar (E4).`;
+Ainda por fazer (spec 001): repousar (E4).`;
 
-const POR_FAZER = { acordar: 'E3', repousar: 'E4' };
-const COMANDOS = { status, registrar: registrarConsole };
+const POR_FAZER = { repousar: 'E4' };
+const COMANDOS = { status, registrar: registrarConsole, acordar: acordarConsole };
 
 process.exitCode = await principal();
 
@@ -85,12 +90,8 @@ async function registrarConsole({ ip, 'de-novo': deNovo }) {
   // Antes da rede: sem terminal não há onde colar a URL nem digitar o PIN, e o comando ficaria esperando.
   if (!process.stdin.isTTY) return falhar(SAIDA.uso, 'O registro é interativo: rode num terminal (no notebook, entre com "ssh notebook").');
 
-  const consoles = await buscar({ ip, tempoMs: TEMPO_DA_BUSCA_MS });
-  if (consoles.length === 0) return falhar(SAIDA.naoEncontrado, naoRespondeu(ip));
-  if (consoles.length > 1) {
-    return falhar(SAIDA.uso, `Há mais de um PS5 na rede; escolha com --ip: ${consoles.map((ps5) => `${ps5.nome} (${ps5.ip})`).join(', ')}.`);
-  }
-  const [ps5] = consoles;
+  const { ps5, codigo } = await umConsole(ip);
+  if (!ps5) return codigo;
   if (ps5.estado !== 'ligado') {
     return falhar(SAIDA.repouso, `${ps5.nome} está em repouso. O registro precisa dele ligado, para mostrar o PIN: ligue pelo controle (acordar pela rede é a E3, que depende deste registro).`);
   }
@@ -120,6 +121,43 @@ async function registrarConsole({ ip, 'de-novo': deNovo }) {
   const protecao = process.platform === 'win32' ? 'na pasta do seu usuário' : 'com permissão 600';
   console.log(`\n${ps5.nome} registrado. A credencial está em ${caminhoPadrao()}, ${protecao}. Ela vale como senha.`);
   return 0;
+}
+
+async function acordarConsole({ ip }) {
+  const { ps5, codigo } = await umConsole(ip, 'Desligado de vez, ele não acorda pela rede: só pelo botão.');
+  if (!ps5) return codigo;
+  if (ps5.estado === 'ligado') {
+    console.log(`${ps5.nome} já estava ligado.`);
+    return SAIDA.ligado;
+  }
+
+  const { caminhoPadrao, ler, permissaoAberta } = await import('../src/credencial.js');
+  const credencial = (await ler(ps5.id))?.['user-credential'];
+  if (!credencial) {
+    return falhar(SAIDA.semCredencial, `Este computador não está registrado no ${ps5.nome}: rode "ps5 registrar" (uma vez, com o PS5 ligado).`);
+  }
+  if (await permissaoAberta()) {
+    console.error(`Aviso: ${caminhoPadrao()} está com permissão aberta demais, e a credencial vale como senha. Feche com: chmod 600 ${caminhoPadrao()}`);
+  }
+
+  const { acordar } = await import('../src/acordar.js');
+  console.log(`Acordando ${ps5.nome} (${ps5.ip})...`);
+  const resultado = await acordar(ps5, credencial, { tempoMs: TEMPO_PARA_ACORDAR_MS });
+  if (resultado.ligou) {
+    console.log(`${ps5.nome} ligou em ${resultado.segundos.toFixed(1)} s.`);
+    return SAIDA.ligado;
+  }
+  return falhar(SAIDA.naoAcordou, `${ps5.nome} não acordou em ${TEMPO_PARA_ACORDAR_MS / 1000} s. No PS5, confira em Economia de energia → Recursos disponíveis no modo de repouso se "Ligar o PS5 pela rede" está ativado.`);
+}
+
+// O console de um comando que age sobre um PS5 só: o do --ip, ou o único que respondeu na rede.
+async function umConsole(ip, dicaSeNaoAchar) {
+  const consoles = await buscar({ ip, tempoMs: TEMPO_DA_BUSCA_MS });
+  if (consoles.length === 0) return { codigo: falhar(SAIDA.naoEncontrado, [naoRespondeu(ip), dicaSeNaoAchar].filter(Boolean).join('\n')) };
+  if (consoles.length > 1) {
+    return { codigo: falhar(SAIDA.uso, `Há mais de um PS5 na rede; escolha com --ip: ${consoles.map((ps5) => `${ps5.nome} (${ps5.ip})`).join(', ')}.`) };
+  }
+  return { ps5: consoles[0] };
 }
 
 function descrever(ps5) {

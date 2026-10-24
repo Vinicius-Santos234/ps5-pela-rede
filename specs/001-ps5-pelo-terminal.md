@@ -73,7 +73,7 @@ repouso, e só acorda pela rede com **"ligar o PS5 pela rede"** ligado.
 |---|---|---|
 | `ps5 status [--ip X] [--json]` | Busca e mostra o estado, o nome, o IP e o sistema | 0 ligado · 1 repouso · 2 não encontrado (os mesmos do `playactor check`, para usar em script) |
 | `ps5 registrar [--ip X]` | Registro pelo `playactor` (login na PSN + PIN), feito uma vez; guarda a credencial | 0 registrado |
-| `ps5 acordar [--ip X]` | Manda o `WAKEUP` (escrito do zero) e espera o `200 Ok` | 0 ligou ou já estava ligado · 3 não acordou no tempo |
+| `ps5 acordar [--ip X]` | Manda o `WAKEUP` (escrito do zero) e espera o `200 Ok` | 0 ligou ou já estava ligado · 3 não acordou no tempo · 2 não encontrado e 78 sem registro (acrescentados na E3) |
 | `ps5 repousar [--ip X] [--forcar]` | Repouso pelo `playactor`. Com um app aberto, só com `--forcar` | 0 em repouso · 4 recusado (app aberto) |
 
 Estrutura prevista: `src/ddp.js` (montar e ler as mensagens), `src/descoberta.js` (UDP),
@@ -124,10 +124,19 @@ Os tempos são estimativas e serão calibrados no console.
 - [x] (a mais) Registrar de novo um console já registrado não faz nada sem `--de-novo`; sem terminal
   interativo, o comando recusa antes de ir à rede
 
-### E3 — Acordar (R3a)
-- [ ] De repouso a ligado em **≤ 60 s**, **5 de 5** tentativas, a partir do notebook
-- [ ] Já ligado: não manda nada, diz "já estava ligado" e sai com o código 0
-- [ ] A credencial não aparece em nenhuma saída nem em log
+### E3 — Acordar (R3a) ✅ 24/10
+- [x] De repouso a ligado em **≤ 60 s**, **5 de 5** tentativas, a partir do notebook. Foram 7 em 24/10,
+  todas com código 0. As 5 de repouso completo: 17,6 · 17,4 · 17,9 · 27,3 · 17,6 s. As outras 2, pedidas
+  até ~30 s depois de o console entrar em repouso, ligaram em 1,1 s
+- [x] Já ligado: não manda nada, diz "já estava ligado" e sai com o código 0
+- [x] A credencial não aparece em nenhuma saída nem em log: a saída do comando e os registros das 7
+  tentativas, contados no notebook contra os valores da credencial, deram zero
+
+**O repouso tem fases** (medido na E3, com o status a cada 2 s): o `620` aparece logo; ~40 s depois o
+console fica mudo na rede por ~20 s e volta a responder `620`. Acordado antes da fase muda, ele liga em ~1 s;
+depois dela, em ~17 s; com alguns minutos de repouso, em ~27 s. Para a página da 002: um "não respondeu"
+de ~20 s logo depois do repouso é normal, não é o console desligado de vez. O `WAKEUP` é reenviado a cada
+10 s enquanto o console continua em `620` (o `playactor` manda uma vez só).
 
 ### E4 — Repouso (R3b)
 - [ ] De ligado a repouso em **≤ 30 s**, **5 de 5** tentativas
