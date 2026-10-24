@@ -114,9 +114,15 @@ Os tempos são estimativas e serão calibrados no console.
 - [x] O leitor de mensagens passa nos testes com as respostas reais (`620` e `200`) e com respostas
   malformadas (linha sem `:`, vazia, de outro aparelho): 20 testes
 
-### E2 — Registro (R2)
-- [ ] `ps5 registrar` cria a credencial; o arquivo tem permissão 600
-- [ ] `git status` limpo e nenhuma credencial no histórico (`git log -p` sem o valor)
+### E2 — Registro (R2) ✅ 24/10
+- [x] `ps5 registrar` cria a credencial; o arquivo tem permissão 600. Registrado no notebook em 24/10, com
+  o `playactor` 0.4.1: `~/.config/ps5-rede/credenciais.json` em 600, a pasta em 700. Vieram a credencial do
+  `WAKEUP`, o ID da conta e o registro do Remote Play (`PS5-RegistKey`, `RP-Key`) que a E4 usa. O
+  `playactor` sozinho gravaria em 644: o arquivo nasce num temporário já em 600 e é renomeado
+- [x] `git status` limpo e nenhuma credencial no histórico: o `git log -p --all` e a árvore inteira,
+  contados no notebook contra os valores da credencial, sem que eles saiam de lá: zero ocorrências de cada um
+- [x] (a mais) Registrar de novo um console já registrado não faz nada sem `--de-novo`; sem terminal
+  interativo, o comando recusa antes de ir à rede
 
 ### E3 — Acordar (R3a)
 - [ ] De repouso a ligado em **≤ 60 s**, **5 de 5** tentativas, a partir do notebook
@@ -133,7 +139,7 @@ Os tempos são estimativas e serão calibrados no console.
 
 | Risco | Plano |
 |---|---|
-| **O login na PSN pelo `playactor` pode ter quebrado** com mudanças da Sony | Plano B: registrar pelo chiaki-ng e ler o `RegistKey` que ele guarda |
+| **O login na PSN pelo `playactor` pode ter quebrado** com mudanças da Sony | Plano B: registrar pelo chiaki-ng e ler o `RegistKey` que ele guarda. **Não quebrou**: o registro com a 0.4.1 (de 2022) funcionou em 24/10 |
 | Uma atualização do sistema muda o protocolo (hoje 14.20) | Os gabaritos guardam a `system-version`; um teste quebrado aponta a mudança |
 | O IP do PS5 muda (DHCP) | A busca não depende do IP; `--ip` é só um atalho |
 | A sessão Remote Play do repouso aparece na TV ou atrapalha quem está jogando | Medir na E4; o `--forcar` (P8) já cobre o pior caso |
