@@ -1,1 +1,3 @@
 * text=auto eol=lf
+# os gabaritos são a resposta do console byte a byte: o git não mexe no fim de linha
+test/gabaritos/** -text

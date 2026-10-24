@@ -1,8 +1,9 @@
 # PS5 pela rede
 
-Ver pela rede de casa se o PS5 está ligado ou em repouso e o que está rodando, e ligar ou pôr o console em
-repouso. O console continua original: nada de jailbreak nem de mudança no firmware, e nada de automatizar
-o que acontece dentro do jogo.
+Ver pela rede de casa se o PS5 está ligado ou em repouso, e ligar ou pôr o console em repouso. O jogo
+rodando vem depois, na 002: o PS5 não o manda pela rede local, só pela presença da conta na PSN. O console
+continua original: nada de jailbreak nem de mudança no firmware, e nada de automatizar o que acontece
+dentro do jogo.
 
 O protocolo de descoberta (DDP, UDP 9302) e o `WAKEUP` são reimplementados do zero, a partir do código que
 a comunidade já decifrou ([playactor](https://github.com/dhleong/playactor),
@@ -10,12 +11,18 @@ a comunidade já decifrou ([playactor](https://github.com/dhleong/playactor),
 
 ## Estado
 
-**Spec 001 aprovada em 24/10/2026; a E1 (descoberta) está em andamento.**
+**Spec 001 aprovada em 24/10/2026; a E1 (descoberta) está pronta.** A próxima é a E2, o registro.
+
+```
+npm test
+node bin/ps5.js status [--ip 192.168.1.10] [--json]   # 0 ligado, 1 repouso, 2 não encontrado
+npm run gabarito                                      # grava a resposta real em test/gabaritos/
+```
 
 | Spec | O que é | Estado |
 |---|---|---|
-| [001](specs/001-ps5-pelo-terminal.md) | O comando `ps5`: status, registrar, acordar, repousar | aprovada, E1 em andamento |
-| 002 | Serviço 24h no servidor caseiro + página para o celular, só pelo Tailscale | a escrever |
+| [001](specs/001-ps5-pelo-terminal.md) | O comando `ps5`: status, registrar, acordar, repousar | aprovada, E1 pronta |
+| 002 | Serviço 24h no servidor caseiro + página para o celular, só pelo Tailscale, com o jogo rodando pela presença da PSN | a escrever |
 
 ## Onde roda
 

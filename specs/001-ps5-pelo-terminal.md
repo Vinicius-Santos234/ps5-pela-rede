@@ -1,6 +1,6 @@
 # Spec 001 — O PS5 pelo terminal: status, acordar e pôr em repouso
 
-**Status:** aprovada em 24/10/2026
+**Status:** aprovada em 24/10/2026; revista no mesmo dia: o jogo rodando passou para a 002 (§3)
 **Data:** 2026-10-22
 **Origem:** a ideia de 19/10 ("ligar o PS5 e ver o status pela rede"), retomada em 22/10:
 *"vamos pegar aquele projetinho do ps5 pela rede"*. A leitura do protocolo no código de referência
@@ -34,13 +34,14 @@ mostra "ligado", tudo em menos de um minuto.
 | Fora | Por quê |
 |---|---|
 | **Página web e serviço 24h** | É a 002. Depende da base do servidor caseiro (Tailscale, etapa E1 dele) |
+| **O jogo rodando** | Medido em 24/10: o PS5 não o manda pela rede local. Com um jogo aberto, a resposta à busca é igual, byte a byte, à da tela inicial. Ele só sai pela presença da conta na API da PSN (token NPSSO, que vale como senha e expira em ~2 meses; limite de 300 consultas a cada 15 min), como faz o `ps5-mqtt`. Vai para a 002, junto com o serviço que consulta e a página que mostra. Decidido por ele em 24/10 |
 | **Acesso de fora de casa** | Também é a 002, e vai pelo Tailscale, **nunca por túnel público**: o botão liga o console |
 | **Remote Play (vídeo, áudio, controle)** | É o estudo do chiaki-ng (R5). Não é preciso para ligar e desligar |
 | **Registro e repouso escritos do zero** | Decisão D2: nesta spec eles vêm do `playactor`. Reescrevê-los fica para a R5, com o resto já funcionando |
 | **Automatizar qualquer coisa dentro do jogo** | Fere os termos da PSN. O projeto liga, desliga e lê o status, nada mais |
 | **Jailbreak, firmware, qualquer mudança no console** | Decisão de 19/10: o PS5 fica original |
 | **PS4** | O protocolo é quase o mesmo (porta 987), mas não há PS4 em casa para testar |
-| **API da PSN** (troféus, amigos, tempo de jogo) | É outra ideia, o painel da PSN, e outro projeto |
+| **API da PSN** (troféus, amigos, tempo de jogo) | É outra ideia, o painel da PSN, e outro projeto. A presença (o jogo rodando) é a exceção, e é da 002 |
 | **Mais de um console** | Há um PS5 em casa. O código não deve supor que é só um, mas nada é testado com dois |
 
 ---
@@ -53,7 +54,7 @@ Lido em 22/10 no código do `playactor` (`src/discovery/`, `src/protocol.ts`, `s
 | Mensagem | Transporte | Conteúdo |
 |---|---|---|
 | Busca | UDP para a porta **9302**, broadcast ou IP direto | `SRCH * HTTP/1.1` + `device-discovery-protocol-version:00030010` |
-| Resposta | UDP de volta para a porta de origem | `HTTP/1.1 200 Ok` (ligado) ou `HTTP/1.1 620 Server Standby` (repouso), e os campos `host-id`, `host-name`, `host-type`, `host-request-port`, `system-version`, mais o app rodando quando ligado |
+| Resposta | UDP de volta para a porta de origem | `HTTP/1.1 200 Ok` (ligado) ou `HTTP/1.1 620 Server Standby` (repouso), e os campos `host-id`, `host-name`, `host-type`, `host-request-port`, `system-version` e a versão do protocolo. **Nada sobre o app rodando**: os campos `running-app-*` são do PS4 (medido em 24/10) |
 | Acordar | UDP para a 9302 | `WAKEUP * HTTP/1.1` + `app-type:r`, `auth-type:R`, `client-type:vr`, `model:w`, `user-credential:<credencial>` + a versão |
 | Registro | PSN (OAuth) + TCP com o console | Login na PSN para obter o ID da conta, e o PIN da tela *Reprodução Remota → Vincular dispositivo*. Devolve o `PS5-RegistKey` |
 | Repouso | TCP, sessão Remote Play criptografada | Login na sessão e o comando `Standby` (`0x50`) |
@@ -70,7 +71,7 @@ repouso, e só acorda pela rede com **"ligar o PS5 pela rede"** ligado.
 
 | Comando | O que faz | Código de saída |
 |---|---|---|
-| `ps5 status [--ip X] [--json]` | Busca e mostra o estado, o nome, o sistema e o app rodando | 0 ligado · 1 repouso · 2 não encontrado (os mesmos do `playactor check`, para usar em script) |
+| `ps5 status [--ip X] [--json]` | Busca e mostra o estado, o nome, o IP e o sistema | 0 ligado · 1 repouso · 2 não encontrado (os mesmos do `playactor check`, para usar em script) |
 | `ps5 registrar [--ip X]` | Registro pelo `playactor` (login na PSN + PIN), feito uma vez; guarda a credencial | 0 registrado |
 | `ps5 acordar [--ip X]` | Manda o `WAKEUP` (escrito do zero) e espera o `200 Ok` | 0 ligou ou já estava ligado · 3 não acordou no tempo |
 | `ps5 repousar [--ip X] [--forcar]` | Repouso pelo `playactor`. Com um app aberto, só com `--forcar` | 0 em repouso · 4 recusado (app aberto) |
@@ -101,13 +102,17 @@ Estrutura prevista: `src/ddp.js` (montar e ler as mensagens), `src/descoberta.js
 
 Os tempos são estimativas e serão calibrados no console.
 
-### E1 — Descoberta (R1)
-- [ ] `ps5 status` acha o PS5 em **≤ 3 s**, no Windows e no notebook, em repouso e ligado
-- [ ] Com o PS5 ligado e um jogo aberto, mostra o nome do jogo. A resposta `200 Ok` real é gravada como
-  gabarito de teste
-- [ ] Com o PS5 desligado de vez, sai com o código 2 em **≤ 5 s**
-- [ ] O leitor de mensagens passa nos testes com as respostas reais (`620` e `200`) e com respostas
-  malformadas (linha sem `:`, vazia, de outro aparelho)
+### E1 — Descoberta (R1) ✅ 24/10
+- [x] `ps5 status` acha o PS5 em **≤ 3 s**, no Windows e no notebook, em repouso e ligado. Medido em 24/10:
+  Windows 0,88 s ligado e 0,91 s em repouso; notebook 0,66 s ligado e 0,61–0,81 s em repouso
+- [x] As respostas reais `200 Ok` e `620` são gravadas como gabarito de teste
+  (`test/gabaritos/ligado-14.20.txt` e `repouso-14.20.txt`). Até 24/10 este item também pedia o nome do
+  jogo aberto, que o PS5 não manda pela rede local: foi para a 002 (§3)
+- [x] Sem resposta, sai com o código 2 em **≤ 5 s**: 3,3 s no Windows e 3,05 s no notebook. Medido com um
+  IP onde não há ninguém, que passa pelo mesmo prazo da busca; com o console desligado de vez, só a sonda
+  de 22/10 e a de 24/10 (nenhuma resposta), não o `ps5 status`
+- [x] O leitor de mensagens passa nos testes com as respostas reais (`620` e `200`) e com respostas
+  malformadas (linha sem `:`, vazia, de outro aparelho): 20 testes
 
 ### E2 — Registro (R2)
 - [ ] `ps5 registrar` cria a credencial; o arquivo tem permissão 600
