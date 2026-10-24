@@ -4,15 +4,17 @@
 //   ps5 status --ip 192.168.1.10 --json
 //   ps5 registrar               uma vez, com o PS5 ligado e a tela do PIN à mão
 //   ps5 acordar
+//   ps5 repousar [--forcar]
 import { isIPv4 } from 'node:net';
 import { createInterface } from 'node:readline/promises';
 import { parseArgs } from 'node:util';
 import { buscar } from '../src/descoberta.js';
 
 // Os códigos do status são os do `playactor check`, para usar em script. 64, 70 e 78 são os do sysexits.h.
-const SAIDA = { ligado: 0, repouso: 1, naoEncontrado: 2, naoAcordou: 3, uso: 64, erro: 70, semCredencial: 78 };
+const SAIDA = { ligado: 0, repouso: 1, naoEncontrado: 2, naoAcordou: 3, recusado: 4, uso: 64, erro: 70, semCredencial: 78 };
 const TEMPO_DA_BUSCA_MS = 3000;
 const TEMPO_PARA_ACORDAR_MS = 60000;
+const TEMPO_PARA_REPOUSAR_MS = 30000;
 
 const USO = `Uso: ps5 <comando> [opções]
 
@@ -24,11 +26,12 @@ const USO = `Uso: ps5 <comando> [opções]
   acordar [--ip X]            liga o PS5 que está em repouso e espera ele responder ligado
                               sai com 0 ligou ou já estava ligado, 2 não encontrado,
                               3 não acordou em 60 s, 78 este computador não está registrado
+  repousar [--ip X]           põe o PS5 em repouso, depois de perguntar
+           [--forcar]         não pergunta (para scripts)
+                              sai com 0 em repouso ou já estava, 2 não encontrado, 4 recusado,
+                              70 falhou, 78 este computador não está registrado`;
 
-Ainda por fazer (spec 001): repousar (E4).`;
-
-const POR_FAZER = { repousar: 'E4' };
-const COMANDOS = { status, registrar: registrarConsole, acordar: acordarConsole };
+const COMANDOS = { status, registrar: registrarConsole, acordar: acordarConsole, repousar: repousarConsole };
 
 process.exitCode = await principal();
 
@@ -41,6 +44,7 @@ async function principal() {
         ip: { type: 'string' },
         json: { type: 'boolean' },
         'de-novo': { type: 'boolean' },
+        forcar: { type: 'boolean' },
         help: { type: 'boolean', short: 'h' },
       },
     });
@@ -54,7 +58,6 @@ async function principal() {
     return 0;
   }
   if (!comando) return falhar(SAIDA.uso, USO);
-  if (POR_FAZER[comando]) return falhar(SAIDA.uso, `"${comando}" ainda não existe: chega na ${POR_FAZER[comando]} da spec 001.`);
   if (!COMANDOS[comando]) return falhar(SAIDA.uso, `Comando desconhecido: ${comando}\n\n${USO}`);
   if (sobra.length) return falhar(SAIDA.uso, `Argumento a mais: ${sobra.join(' ')}`);
   if (opcoes.ip !== undefined && !isIPv4(opcoes.ip)) return falhar(SAIDA.uso, `--ip precisa ser um IPv4, e veio "${opcoes.ip}".`);
@@ -93,7 +96,7 @@ async function registrarConsole({ ip, 'de-novo': deNovo }) {
   const { ps5, codigo } = await umConsole(ip);
   if (!ps5) return codigo;
   if (ps5.estado !== 'ligado') {
-    return falhar(SAIDA.repouso, `${ps5.nome} está em repouso. O registro precisa dele ligado, para mostrar o PIN: ligue pelo controle (acordar pela rede é a E3, que depende deste registro).`);
+    return falhar(SAIDA.repouso, `${ps5.nome} está em repouso. O registro precisa dele ligado, para mostrar o PIN: ligue com "ps5 acordar" ou pelo controle.`);
   }
 
   const { caminhoPadrao, ler } = await import('../src/credencial.js');
@@ -104,12 +107,7 @@ async function registrarConsole({ ip, 'de-novo': deNovo }) {
 
   // Só aqui o playactor é carregado: o status não paga por ele.
   const { explicarErro, registrar } = await import('../src/registro.js');
-  const terminal = createInterface({ input: process.stdin, output: process.stdout });
-  // Com o readline aberto e sem quem ouça o SIGINT, o Ctrl+C só pausa a entrada, e o comando fica parado.
-  terminal.on('SIGINT', () => {
-    terminal.close();
-    process.exit(130);
-  });
+  const terminal = abrirTerminal();
   try {
     console.log(`Registrando este computador no ${ps5.nome} (${ps5.ip}).\n`);
     await registrar(ps5, { escrever: (texto) => console.log(texto), perguntar: (texto) => terminal.question(texto) });
@@ -130,15 +128,8 @@ async function acordarConsole({ ip }) {
     console.log(`${ps5.nome} já estava ligado.`);
     return SAIDA.ligado;
   }
-
-  const { caminhoPadrao, ler, permissaoAberta } = await import('../src/credencial.js');
-  const credencial = (await ler(ps5.id))?.['user-credential'];
-  if (!credencial) {
-    return falhar(SAIDA.semCredencial, `Este computador não está registrado no ${ps5.nome}: rode "ps5 registrar" (uma vez, com o PS5 ligado).`);
-  }
-  if (await permissaoAberta()) {
-    console.error(`Aviso: ${caminhoPadrao()} está com permissão aberta demais, e a credencial vale como senha. Feche com: chmod 600 ${caminhoPadrao()}`);
-  }
+  const credencial = (await credencialDe(ps5))?.['user-credential'];
+  if (!credencial) return SAIDA.semCredencial;
 
   const { acordar } = await import('../src/acordar.js');
   console.log(`Acordando ${ps5.nome} (${ps5.ip})...`);
@@ -150,6 +141,48 @@ async function acordarConsole({ ip }) {
   return falhar(SAIDA.naoAcordou, `${ps5.nome} não acordou em ${TEMPO_PARA_ACORDAR_MS / 1000} s. No PS5, confira em Economia de energia → Recursos disponíveis no modo de repouso se "Ligar o PS5 pela rede" está ativado.`);
 }
 
+async function repousarConsole({ ip, forcar }) {
+  const { ps5, codigo } = await umConsole(ip);
+  if (!ps5) return codigo;
+  if (ps5.estado === 'repouso') {
+    console.log(`${ps5.nome} já estava em repouso.`);
+    return 0;
+  }
+  if (!(await credencialDe(ps5))) return SAIDA.semCredencial;
+
+  // Só aqui o playactor é carregado: o status não paga por ele.
+  const { confirmar, explicarErro, repousar } = await import('../src/repousar.js');
+  const terminal = process.stdin.isTTY ? abrirTerminal() : null;
+  let decisao;
+  try {
+    decisao = await confirmar(ps5, { forcar, interativo: Boolean(terminal), perguntar: (texto) => terminal.question(texto) });
+  } finally {
+    terminal?.close();
+  }
+  if (decisao === 'sem-terminal') {
+    return falhar(SAIDA.recusado, `Não pus ${ps5.nome} em repouso: sem terminal para perguntar se alguém está jogando. Em script: ps5 repousar --forcar`);
+  }
+  if (decisao === 'recusado') {
+    console.log('Nada feito.');
+    return SAIDA.recusado;
+  }
+
+  console.log(`Pondo ${ps5.nome} (${ps5.ip}) em repouso...`);
+  let resultado;
+  try {
+    resultado = await repousar(ps5, { tempoMs: TEMPO_PARA_REPOUSAR_MS });
+  } catch (erro) {
+    console.error(`Não pus ${ps5.nome} em repouso: ${explicarErro(erro)}`);
+    // Uma sessão que estourou o prazo ainda pode estar pendurada no playactor e segurar o processo.
+    process.exit(SAIDA.erro);
+  }
+  if (resultado.repousou) {
+    console.log(`${ps5.nome} entrou em repouso em ${resultado.segundos.toFixed(1)} s.`);
+    return 0;
+  }
+  return falhar(SAIDA.erro, `O comando foi aceito, mas ${ps5.nome} não respondeu em repouso em ${TEMPO_PARA_REPOUSAR_MS / 1000} s.`);
+}
+
 // O console de um comando que age sobre um PS5 só: o do --ip, ou o único que respondeu na rede.
 async function umConsole(ip, dicaSeNaoAchar) {
   const consoles = await buscar({ ip, tempoMs: TEMPO_DA_BUSCA_MS });
@@ -158,6 +191,30 @@ async function umConsole(ip, dicaSeNaoAchar) {
     return { codigo: falhar(SAIDA.uso, `Há mais de um PS5 na rede; escolha com --ip: ${consoles.map((ps5) => `${ps5.nome} (${ps5.ip})`).join(', ')}.`) };
   }
   return { ps5: consoles[0] };
+}
+
+// A credencial deste computador para o console, ou null com o motivo já escrito.
+async function credencialDe(ps5) {
+  const { caminhoPadrao, ler, permissaoAberta } = await import('../src/credencial.js');
+  const credencial = await ler(ps5.id);
+  if (!credencial) {
+    console.error(`Este computador não está registrado no ${ps5.nome}: rode "ps5 registrar" (uma vez, com o PS5 ligado).`);
+    return null;
+  }
+  if (await permissaoAberta()) {
+    console.error(`Aviso: ${caminhoPadrao()} está com permissão aberta demais, e a credencial vale como senha. Feche com: chmod 600 ${caminhoPadrao()}`);
+  }
+  return credencial;
+}
+
+// Com o readline aberto e sem quem ouça o SIGINT, o Ctrl+C só pausa a entrada, e o comando fica parado.
+function abrirTerminal() {
+  const terminal = createInterface({ input: process.stdin, output: process.stdout });
+  terminal.on('SIGINT', () => {
+    terminal.close();
+    process.exit(130);
+  });
+  return terminal;
 }
 
 function descrever(ps5) {

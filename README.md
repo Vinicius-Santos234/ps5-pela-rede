@@ -11,20 +11,21 @@ a comunidade já decifrou ([playactor](https://github.com/dhleong/playactor),
 
 ## Estado
 
-**Spec 001 aprovada em 24/10/2026; a E1 (descoberta), a E2 (registro) e a E3 (acordar) estão prontas.**
-A próxima é a E4, pôr em repouso.
+**Spec 001 concluída em 24/10/2026**: o PS5 pelo terminal, com status, registrar, acordar e repousar,
+testados no console. A próxima é a 002.
 
 ```
 npm ci && npm test
 node bin/ps5.js status [--ip 192.168.1.10] [--json]   # 0 ligado, 1 repouso, 2 não encontrado
 node bin/ps5.js registrar                             # uma vez, num terminal, com o PS5 ligado
 node bin/ps5.js acordar                               # 0 ligou, 3 não acordou em 60 s, 78 sem registro
+node bin/ps5.js repousar [--forcar]                   # pergunta antes; 0 em repouso, 4 recusado
 npm run gabarito                                      # grava a resposta real em test/gabaritos/
 ```
 
 | Spec | O que é | Estado |
 |---|---|---|
-| [001](specs/001-ps5-pelo-terminal.md) | O comando `ps5`: status, registrar, acordar, repousar | aprovada, E1 a E3 prontas |
+| [001](specs/001-ps5-pelo-terminal.md) | O comando `ps5`: status, registrar, acordar, repousar | **concluída** |
 | 002 | Serviço 24h no servidor caseiro + página para o celular, só pelo Tailscale, com o jogo rodando pela presença da PSN | a escrever |
 
 ## Onde roda

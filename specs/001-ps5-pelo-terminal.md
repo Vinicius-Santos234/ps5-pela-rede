@@ -1,6 +1,6 @@
 # Spec 001 — O PS5 pelo terminal: status, acordar e pôr em repouso
 
-**Status:** aprovada em 24/10/2026; revista no mesmo dia: o jogo rodando passou para a 002 (§3)
+**Status:** **concluída em 24/10/2026** (aprovada no mesmo dia; revista duas vezes: o jogo rodando passou para a 002, §3, e a P8 virou uma pergunta, §6)
 **Data:** 2026-10-22
 **Origem:** a ideia de 19/10 ("ligar o PS5 e ver o status pela rede"), retomada em 22/10:
 *"vamos pegar aquele projetinho do ps5 pela rede"*. A leitura do protocolo no código de referência
@@ -74,7 +74,7 @@ repouso, e só acorda pela rede com **"ligar o PS5 pela rede"** ligado.
 | `ps5 status [--ip X] [--json]` | Busca e mostra o estado, o nome, o IP e o sistema | 0 ligado · 1 repouso · 2 não encontrado (os mesmos do `playactor check`, para usar em script) |
 | `ps5 registrar [--ip X]` | Registro pelo `playactor` (login na PSN + PIN), feito uma vez; guarda a credencial | 0 registrado |
 | `ps5 acordar [--ip X]` | Manda o `WAKEUP` (escrito do zero) e espera o `200 Ok` | 0 ligou ou já estava ligado · 3 não acordou no tempo · 2 não encontrado e 78 sem registro (acrescentados na E3) |
-| `ps5 repousar [--ip X] [--forcar]` | Repouso pelo `playactor`. Com um app aberto, só com `--forcar` | 0 em repouso · 4 recusado (app aberto) |
+| `ps5 repousar [--ip X] [--forcar]` | Repouso pelo `playactor`. Pergunta antes; `--forcar` pula a pergunta | 0 em repouso ou já estava · 4 recusado (não confirmado) · 2 não encontrado, 70 falhou e 78 sem registro (acrescentados na E4) |
 
 Estrutura prevista: `src/ddp.js` (montar e ler as mensagens), `src/descoberta.js` (UDP),
 `src/acordar.js`, `src/credencial.js`, `bin/ps5.js` (a CLI) e `test/`.
@@ -92,9 +92,10 @@ Estrutura prevista: `src/ddp.js` (montar e ler as mensagens), `src/descoberta.js
 | P5 | **A credencial fica fora do repositório**: `~/.config/ps5-rede/`, arquivo com permissão 600, pasta no `.gitignore` | Vale como senha |
 | P6 | Nesta spec, roda como comando no Windows e no notebook, **sem Docker** | Em Docker, o broadcast exige `network_mode: host`; como o serviço vai rodar é decisão da 002 |
 | P7 | Testes com `node:test`; o leitor de mensagens testado com **respostas reais gravadas** (com o `host-id` trocado) | O molde do agente de notícias; a resposta real do console é o gabarito |
-| P8 | **Repousar com um app aberto exige `--forcar`** | Alguém pode estar jogando na sala |
+| P8 | **Repousar pergunta antes** ("Alguém pode estar jogando. Pôr em repouso? [s/N]"); `--forcar` pula a pergunta, para scripts; sem terminal e sem `--forcar`, recusa | Alguém pode estar jogando na sala. Até 24/10 a regra era "com um app aberto, só com `--forcar`", mas o PS5 não diz pela rede local se há app aberto (§3), nem a sessão do `playactor`. Decidido por ele em 24/10; na 002, a página pode mostrar o jogo pela PSN antes de perguntar |
 | P9 | Desenvolver no Windows → GitHub → notebook | Decidido no agente de julho: o notebook é só ambiente de execução |
 | P10 | `.gitattributes` com `eol=lf` | Lição de julho: CRLF quebra script no Linux |
+| P11 | **O repouso pula o login da sessão Remote Play, e é confirmado pela busca** | Achado na E4 (24/10): o PS5 14.20 não responde ao `Login` da sessão, e o `playactor` 0.4.1 espera por ele para sempre antes de mandar o `Standby`. É a issue #71 dele; a correção de lá (pular o login numa sessão só para o repouso) está testada, mas ainda não foi aceita. O `Standby` vai sem o login, só enquanto a sessão abre. E o `standby()` dele espera o console fechar a conexão, o que o PS5 não faz: quem confirma é a busca respondendo `620`. Quando a correção entrar numa versão, o contorno sai |
 
 ---
 
@@ -138,9 +139,15 @@ depois dela, em ~17 s; com alguns minutos de repouso, em ~27 s. Para a página d
 de ~20 s logo depois do repouso é normal, não é o console desligado de vez. O `WAKEUP` é reenviado a cada
 10 s enquanto o console continua em `620` (o `playactor` manda uma vez só).
 
-### E4 — Repouso (R3b)
-- [ ] De ligado a repouso em **≤ 30 s**, **5 de 5** tentativas
-- [ ] Com um app aberto e sem `--forcar`: recusa com o código 4 e não mexe no console
+### E4 — Repouso (R3b) ✅ 24/10
+- [x] De ligado a repouso em **≤ 30 s**, **5 de 5** tentativas: 8,4 · 8,4 · 8,4 · 8,4 · 8,5 s, do notebook,
+  num ciclo automático de acordar e repousar. O comando inteiro termina sozinho em ~9,2 s. Nas mesmas voltas,
+  mais 5 despertares em 17,5–18,7 s (a E3 fica em 12 de 12). A credencial não aparece no registro
+- [x] Sem `--forcar` e sem um "s" na pergunta (ou sem terminal para perguntar): recusa com o código 4 e não
+  mexe no console. Testado sem terminal e respondendo "n": código 4, e o console continuou ligado. (Até
+  24/10: "com um app aberto e sem `--forcar`"; ver a P8)
+- Antes de chegar lá, duas tentativas estouraram os 30 s: a primeira pelo `Login` sem resposta (P11), a
+  segunda porque o `standby()` do `playactor` não volta. Nas duas, a sessão foi fechada no fim do prazo
 
 ---
 
@@ -151,7 +158,7 @@ de ~20 s logo depois do repouso é normal, não é o console desligado de vez. O
 | **O login na PSN pelo `playactor` pode ter quebrado** com mudanças da Sony | Plano B: registrar pelo chiaki-ng e ler o `RegistKey` que ele guarda. **Não quebrou**: o registro com a 0.4.1 (de 2022) funcionou em 24/10 |
 | Uma atualização do sistema muda o protocolo (hoje 14.20) | Os gabaritos guardam a `system-version`; um teste quebrado aponta a mudança |
 | O IP do PS5 muda (DHCP) | A busca não depende do IP; `--ip` é só um atalho |
-| A sessão Remote Play do repouso aparece na TV ou atrapalha quem está jogando | Medir na E4; o `--forcar` (P8) já cobre o pior caso |
+| A sessão Remote Play do repouso aparece na TV ou atrapalha quem está jogando | Medir na E4; a pergunta (P8) cobre o pior caso. Na E4, a sessão durou ~9 s e terminou em repouso; o que aparece na tela ainda não foi observado |
 
 ---
 
