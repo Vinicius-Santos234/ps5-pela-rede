@@ -41,3 +41,9 @@ registro.
 
 A credencial do registro vale como senha. Ela fica em `~/.config/ps5-rede/`, com permissão 600, e nunca
 entra no repositório.
+
+## Licença
+
+MIT ([LICENSE](LICENSE)). O registro e o repouso usam o [playactor](https://github.com/dhleong/playactor)
+(ISC); a descoberta e o `WAKEUP` foram escritos a partir do que ele e o
+[ps5-mqtt](https://github.com/FunkeyFlo/ps5-mqtt) decifraram.

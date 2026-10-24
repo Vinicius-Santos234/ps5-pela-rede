@@ -1,9 +1,14 @@
 {
-  "name": "ps5-rede",
+  "name": "ps5-pela-rede",
   "version": "0.0.0",
   "private": true,
   "description": "Ver pela rede de casa se o PS5 está ligado ou em repouso, e ligá-lo ou pô-lo em repouso.",
   "author": "Vinicius Santos",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Vinicius-Santos234/ps5-pela-rede.git"
+  },
   "type": "module",
   "bin": {
     "ps5": "bin/ps5.js"
