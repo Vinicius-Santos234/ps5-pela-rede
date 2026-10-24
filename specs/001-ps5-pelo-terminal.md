@@ -1,6 +1,6 @@
 # Spec 001 — O PS5 pelo terminal: status, acordar e pôr em repouso
 
-**Status:** rascunho, aguardando aprovação
+**Status:** aprovada em 24/10/2026
 **Data:** 2026-10-22
 **Origem:** a ideia de 19/10 ("ligar o PS5 e ver o status pela rede"), retomada em 22/10:
 *"vamos pegar aquele projetinho do ps5 pela rede"*. A leitura do protocolo no código de referência
@@ -139,5 +139,6 @@ Os tempos são estimativas e serão calibrados no console.
 
 | Pergunta | Opções |
 |---|---|
-| Repositório no GitHub | Público (portfólio) ou privado. Em nenhum dos dois casos a credencial vai para o repositório (P5) |
-| Nome do comando | `ps5`, ou outro |
+| Repositório no GitHub | Público (portfólio) ou privado. Em nenhum dos dois casos a credencial vai para o repositório (P5). Decidir antes do primeiro push; não trava a E1 |
+
+O nome do comando ficou `ps5`, o que a spec já usava (24/10).

@@ -10,11 +10,11 @@ a comunidade já decifrou ([playactor](https://github.com/dhleong/playactor),
 
 ## Estado
 
-**Spec 001 em rascunho, aguardando aprovação.** Ainda não há código.
+**Spec 001 aprovada em 24/10/2026; a E1 (descoberta) está em andamento.**
 
 | Spec | O que é | Estado |
 |---|---|---|
-| [001](specs/001-ps5-pelo-terminal.md) | O comando `ps5`: status, registrar, acordar, repousar | rascunho |
+| [001](specs/001-ps5-pelo-terminal.md) | O comando `ps5`: status, registrar, acordar, repousar | aprovada, E1 em andamento |
 | 002 | Serviço 24h no servidor caseiro + página para o celular, só pelo Tailscale | a escrever |
 
 ## Onde roda
